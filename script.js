@@ -23,6 +23,7 @@ let currentCheckinId = null;
 
 // DOM Elements (Consolidated for clarity)
 const loginButton = document.getElementById('login-button');
+const authcontainer = document.getElementById('auth-container');
 const logoutButton = document.getElementById('logout-button');
 const userInfoDiv = document.getElementById('user-info');
 const userNameSpan = document.getElementById('user-name');
@@ -149,6 +150,7 @@ auth.onAuthStateChanged((user) => {
 // --- User Information Display ---
 function displayUserInfo(user) {
     loginButton.style.display = 'none';
+    authcontainer.style.display = 'none';
     logoutButton.style.display = 'inline-block';
     userInfoDiv.style.display = 'block';
     userNameSpan.textContent = user.displayName;
@@ -160,7 +162,8 @@ function displayUserInfo(user) {
 }
 
 function hideUserInfo() {
-    loginButton.style.display = 'inline-block';
+    loginButton.style.display = 'flex';
+    authcontainer.style.display = 'block';
     logoutButton.style.display = 'none';
     userInfoDiv.style.display = 'none';
     userPhotoImg.style.display = 'none';

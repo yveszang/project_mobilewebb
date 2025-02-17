@@ -11,9 +11,18 @@
 </head>
 
 <body>
-    <div id="app">
+    <div id="app" class="login">
         <div id="auth-container">
-            <button id="login-button">Login with Google</button>
+            <h1>LOGIN</h1>
+            <form action="">
+                <input type="text" placeholder="Username">
+                <input type="text" placeholder="Password">
+                <input type="submit" value="LOGIN">
+            </form>
+            <a href="#" id="login-button" class="loginbutton">
+                <img src="img/google.png" alt="">
+                Login with Google
+            </a>
         </div>
         <div id="user-info" style="display: none;">
             <h2>ข้อมูลผู้ใช้</h2>
@@ -50,26 +59,26 @@
             <h3 id="class-title"></h3>
             <img id="class-image" src="" alt="รูปภาพวิชา">
             <div id="qrcode"></div>
-        
+
             <button id="create-question-button">สร้างชื่อแบบฟอร์มเช็คชื่อ</button>
-        
+
             <div id="attendance-questions-list">
                 <h3>ชื่อแบบฟอร์มเช็คชื่อ</h3>
                 <ul id="attendance-questions"></ul>
             </div>
             <button id="show-add-student-modal">เพิ่มนักเรียน</button>
-        
+
             <div id="student-list-container">
                 <h3>รายชื่อนักเรียนในห้องเรียน</h3>
                 <ul id="student-list"></ul>
             </div>
-        
+
             <button id="go-back">Go Back</button>
             <button id="show-students-button">แสดงรายชื่อนักเรียน</button>
             <button id="add-checkin-button">เพิ่มการเช็คชื่อ</button>
             <ul id="checkin-list"></ul>
         </div>
-        
+
         <div id="add-student-modal"
             style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
             <div
@@ -115,5 +124,3 @@
 </body>
 
 </html>
-
-<!-- Hello -->
