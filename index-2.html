@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Teacher Web App</title>
+    <link rel="stylesheet" href="style-3.css">
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <div id="auth-container">
+            <button id="login-button">Login with Google</button>
+        </div>
+        <div id="user-info" style="display: none;">
+            <h2>ข้อมูลผู้ใช้</h2>
+            <p>ชื่อ: <span id="user-name"></span></p>
+            <p>อีเมล: <span id="user-email"></span></p>
+            <img id="user-photo" src="" alt="รูปภาพ" style="max-width: 100px; display: none;">
+            <button id="logout-button">Logout</button>
+            <button id="edit-profile-button">แก้ไขข้อมูลส่วนตัว</button>
+            <button id="add-class-button">เพิ่มวิชา</button>
+            <h2>รายชื่อวิชาที่สอน</h2>
+            <button id="class-list"></button>
+        </div>
+
+        <div id="edit-profile" style="display: none;">
+            <h2>แก้ไขข้อมูลส่วนตัว</h2>
+            <input type="text" id="edit-name" placeholder="ชื่อ">
+            <input type="email" id="edit-email" placeholder="อีเมล">
+            <input type="file" id="edit-photo">
+            <button id="save-profile-button">บันทึก</button>
+        </div>
+
+        <div id="add-class" style="display: none;">
+            <h2>เพิ่มวิชา</h2>
+            <input type="text" id="class-code" placeholder="รหัสวิชา" required>
+            <input type="text" id="class-name" placeholder="ชื่อวิชา" required>
+            <input type="text" id="class-room" placeholder="ชื่อห้องเรียน">
+            <input type="text" id="class-photo" placeholder="Link รูปภาพ">
+            <button id="save-class-button">บันทึก</button>
+            <button type="button" id="cancel-add-class-button">Cancel</button>
+        </div>
+
+        <div id="manage-class" style="display: none;">
+            <h2>จัดการห้องเรียน</h2>
+            <h3 id="class-title"></h3>
+            <img id="class-image" src="" alt="รูปภาพวิชา">
+            <div id="qrcode"></div>
+        
+            <button id="create-question-button">สร้างชื่อแบบฟอร์มเช็คชื่อ</button>
+        
+            <div id="attendance-questions-list">
+                <h3>ชื่อแบบฟอร์มเช็คชื่อ</h3>
+                <ul id="attendance-questions"></ul>
+            </div>
+            <button id="show-add-student-modal">เพิ่มนักเรียน</button>
+        
+            <div id="student-list-container">
+                <h3>รายชื่อนักเรียนในห้องเรียน</h3>
+                <ul id="student-list"></ul>
+            </div>
+        
+            <button id="go-back">Go Back</button>
+            <button id="show-students-button">แสดงรายชื่อนักเรียน</button>
+            <button id="add-checkin-button">เพิ่มการเช็คชื่อ</button>
+            <ul id="checkin-list"></ul>
+        </div>
+        
+        <div id="add-student-modal"
+            style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+            <div
+                style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; border-radius: 5px;">
+                <h2>เพิ่มนักเรียน</h2>
+                <input type="text" id="student-id-modal" placeholder="รหัสนักเรียน">
+                <button id="search-student-button">ค้นหา</button>
+                <p id="student-info-modal" style="display: none;">ชื่อ: <span id="student-name-modal"></span></p>
+                <button id="add-student-button-modal" style="display: none;">เพิ่มเข้าห้องเรียน</button>
+                <button id="cancel-add-student-modal">ยกเลิก</button>
+                <p id="add-student-error-message" style="color: red; display: none;"></p>
+            </div>
+        </div>
+
+        <div id="checkin" style="display: none;">
+            <h2>เช็คชื่อ</h2>
+            <h3 id="checkin-title"></h3>
+            <img id="checkin-image" src="" alt="รูปภาพวิชา">
+            <button id="exit-checkin-button">ออก</button>
+            <button id="start-checkin-button">เปิดเช็คชื่อ</button>
+            <button id="close-checkin-button">ปิดเช็คชื่อ</button>
+            <button id="save-checkin-button">บันทึกการเช็คชื่อ</button>
+            <button id="show-checkin-code-button">แสดงรหัสเช็คชื่อ</button>
+            <button id="show-checkin-qrcode-button">แสดง QRCode วิชา</button>
+            <button id="qna-button">ถาม-ตอบ</button>
+            <button id="show-students-checkin-button">แสดงรายชื่อ</button>
+            <button id="go-back2">Go Back</button>
+            <ul id="students-checkin-list"></ul>
+        </div>
+
+        <div id="qna" style="display: none;">
+            <h2>ถาม-ตอบ</h2>
+            <input type="number" id="question-no" placeholder="ข้อที่">
+            <input type="text" id="question-text" placeholder="ข้อความคำถาม">
+            <button id="start-qna-button">เริ่มถาม</button>
+            <button id="close-qna-button">ปิดคำถาม</button>
+            <button id="go-back3">Go Back</button>
+            <ul id="answers-list"></ul>
+        </div>
+    </div>
+
+    <script src="script.js" defer></script>
+</body>
+
+</html>
