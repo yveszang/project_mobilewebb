@@ -88,6 +88,8 @@ const studentNameModal = document.getElementById('student-name-modal');
 const addStudentButtonModal = document.getElementById('add-student-button-modal');
 const cancelAddStudentModal = document.getElementById('cancel-add-student-modal');
 const addStudentErrorMessage = document.getElementById('add-student-error-message');
+const checkinCode = document.getElementById('checkin-code').value; // รับค่าโค้ดจาก input
+
 // --- Event Listeners for Navigation ---
 goBackButton.addEventListener('click', () => {
     manageClassDiv.style.display = 'none';
@@ -492,7 +494,7 @@ async function createAttendanceQuestion(questionText) {
     }
 }
 
-// --- Add Student ---
+// --- Add Student --- 
 async function addStudentToClass(stid, name, studentUid) {
     try {
         const classroomRef = db.collection('classrooms').doc(currentClassroomId);
@@ -501,6 +503,7 @@ async function addStudentToClass(stid, name, studentUid) {
             alert("ไม่พบห้องเรียนนี้");
             return;
         }
+
         // Check for duplicates (optional, but good practice)
         const studentRef = classroomRef.collection('student').doc(stid);
         const studentDoc = await studentRef.get();
@@ -508,7 +511,6 @@ async function addStudentToClass(stid, name, studentUid) {
             alert("นักเรียนคนนี้อยู่ในห้องเรียนนี้แล้ว");
             return;
         }
-
 
         await studentRef.set({
             stid: stid,
@@ -521,6 +523,11 @@ async function addStudentToClass(stid, name, studentUid) {
         // Add to /users/{uid}/classroom/{cid}
         await db.collection('users').doc(studentUid).collection('classroom').doc(currentClassroomId).set({
             status: 0 // Student
+        });
+
+        // เพิ่มข้อมูลวิชา (courses) ในผู้เรียน
+        await db.collection('users').doc(studentUid).update({
+            courses: firebase.firestore.FieldValue.arrayUnion(currentClassroomId) // เพิ่มห้องเรียนในฟิลด์ courses ของผู้เรียน
         });
 
         console.log("เพิ่มนักเรียนเข้าห้องเรียนสำเร็จ");
@@ -573,22 +580,46 @@ async function showStudentsInClass(classroomId) {
     }
 }
 
-// --- Add Check-in ---
-async function addCheckin(classroomId) {
+document.getElementById('add-checkin-button').addEventListener('click', () => {
+    // ดึงค่าโค้ดจาก input
+    const checkinCode = document.getElementById('checkin-code').value.trim();
+
+    // ตรวจสอบว่าผู้ใช้กรอกโค้ดหรือไม่
+    if (!checkinCode) {
+        alert("กรุณากรอกโค้ดการเช็คชื่อ");
+        return;
+    }
+
+
+    addCheckin(currentClassroomId, checkinCode);
+});
+
+
+
+
+// --- ฟังก์ชันสำหรับเพิ่มการเช็คชื่อ ---
+async function addCheckin(classroomId, checkinCode) {
+    // ตรวจสอบว่าอาจารย์กรอกโค้ดหรือไม่
+    if (!checkinCode || checkinCode.trim() === "") {
+        alert("กรุณากรอกโค้ดการเช็คชื่อ");
+        return; // หยุดการทำงานหากไม่มีโค้ด
+    }
+
     try {
         const checkinRef = db.collection('classrooms').doc(classroomId).collection('checkins').doc();
         currentCheckinId = checkinRef.id;
 
+        // เพิ่มการเช็คชื่อใน Firebase
         await checkinRef.set({
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            status: 'open',
+            status: 'open', // กำหนดสถานะเริ่มต้นเป็น "เปิด"
+            code: checkinCode
         });
 
         console.log("Check-in created successfully!");
         alert("Check-in created successfully!");
-        displayCheckins(classroomId);
-        gotoCheckin(classroomId, currentCheckinId);
-
+        displayCheckins(classroomId); // แสดงการเช็คชื่อที่เพิ่มเข้ามา
+        gotoCheckin(classroomId, currentCheckinId); // ไปที่หน้าจัดการเช็คชื่อ
     } catch (error) {
         console.error("Error creating check-in:", error);
         alert("Error creating check-in: " + error.message);
@@ -696,7 +727,7 @@ async function closeCheckin(classroomId, checkinId) {
     }
 }
 
-// --- Show Checked-In Students ---
+// --- แสดงรายชื่อผู้เช็กชื่อ ---
 async function showCheckedInStudents(classroomId, checkinId) {
     try {
         const checkedInRef = db.collection('classrooms').doc(classroomId).collection('checkins').doc(checkinId).collection('checkedInStudents');
@@ -712,15 +743,292 @@ async function showCheckedInStudents(classroomId, checkinId) {
         snapshot.forEach(doc => {
             const studentData = doc.data();
             const listItem = document.createElement('li');
-            listItem.textContent = `${studentData.stid} - ${studentData.name}`;
+            listItem.textContent = `${studentData.stid} - ${studentData.name} - คะแนน: ${studentData.grade || 1}`;
+
+            // เพิ่มปุ่มเพื่อให้ครูสามารถบันทึกคะแนนการเข้าเรียน
+            const gradeButton = document.createElement('button');
+            gradeButton.textContent = 'บันทึกคะแนน';
+            gradeButton.addEventListener('click', () => {
+                // ฟังก์ชันบันทึกคะแนนการเข้าเรียน
+                recordAttendanceGrade(classroomId, checkinId, studentData.stid);
+            });
+
+            listItem.appendChild(gradeButton);
             studentsCheckinListUl.appendChild(listItem);
         });
-
     } catch (error) {
         console.error("Error fetching checked-in students:", error);
         alert("Error fetching checked-in students: " + error.message);
     }
 }
+
+// --- ฟังก์ชันสำหรับบันทึกคะแนนการเข้าเรียน ---
+async function recordAttendanceGrade(classroomId, checkinId, studentId) {
+    const currentGrade = prompt("กรุณากรอกคะแนนการเข้าเรียนสำหรับนักเรียนคนนี้:", 1);
+    if (currentGrade !== null) {
+        try {
+            const grade = parseInt(currentGrade, 10);
+            if (isNaN(grade)) {
+                alert("กรุณากรอกคะแนนที่เป็นตัวเลข");
+                return;
+            }
+
+            const studentRef = db.collection('classrooms').doc(classroomId)
+                .collection('checkins').doc(checkinId)
+                .collection('checkedInStudents').doc(studentId);
+
+            await studentRef.update({
+                grade: grade  // บันทึกคะแนนเข้าเรียน
+            });
+
+            console.log("Attendance grade recorded!");
+            alert("บันทึกคะแนนการเข้าเรียนสำเร็จ!");
+        } catch (error) {
+            console.error("Error recording attendance grade:", error);
+            alert("Error recording attendance grade: " + error.message);
+        }
+    }
+}
+
+// --- ฟังก์ชันสำหรับเพิ่มผู้เช็คชื่อและตั้งค่าคะแนนเริ่มต้นเป็น 1 ---
+async function addStudentToCheckin(classroomId, checkinId, studentId, studentName) {
+    try {
+        const studentRef = db.collection('classrooms').doc(classroomId)
+            .collection('checkins').doc(checkinId)
+            .collection('checkedInStudents').doc(studentId);
+
+        // เพิ่มข้อมูลนักเรียนพร้อมคะแนนเริ่มต้น
+        await studentRef.set({
+            stid: studentId,
+            name: studentName,
+            grade: 1,  
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        console.log("Student added to check-in with initial grade of 1.");
+    } catch (error) {
+        console.error("Error adding student to check-in:", error);
+        alert("Error adding student: " + error.message);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+// // --- ฟังก์ชันสำหรับเพิ่มการเช็คชื่อ ---
+// async function addCheckin(classroomId, checkinCode) {
+//     if (!checkinCode || checkinCode.trim() === "") {
+//         alert("กรุณากรอกโค้ดการเช็คชื่อ");
+//         return;
+//     }
+
+//     try {
+//         const checkinRef = db.collection('classrooms').doc(classroomId).collection('checkins').doc();
+//         currentCheckinId = checkinRef.id;
+
+//         await checkinRef.set({
+//             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+//             status: 'open',  // สถานะเริ่มต้นเป็น 'open'
+//             code: checkinCode
+//         });
+
+//         console.log("Check-in created successfully!");
+//         alert("Check-in created successfully!");
+//         displayCheckins(classroomId); // แสดงรายการเช็กชื่อ
+//         showCheckinCode(checkinCode); // แสดงรหัสเช็กชื่อ
+//         gotoCheckin(classroomId, currentCheckinId);
+//     } catch (error) {
+//         console.error("Error creating check-in:", error);
+//         alert("Error creating check-in: " + error.message);
+//     }
+// }
+
+// // --- แสดงรหัสเช็กชื่อ ---
+// function showCheckinCode(checkinCode) {
+//     // แสดงรหัสการเช็คชื่อในหน้า UI
+//     const checkinCodeDiv = document.getElementById('checkin-code-display');
+//     checkinCodeDiv.textContent = `รหัสเช็กชื่อ: ${checkinCode}`;
+// }
+
+// // --- แสดงรายการการเช็คชื่อ ---
+// async function displayCheckins(classroomId) {
+//     try {
+//         const checkinsRef = db.collection('classrooms').doc(classroomId).collection('checkins');
+//         const snapshot = await checkinsRef.orderBy('createdAt', 'desc').get();
+
+//         checkinListUl.innerHTML = '';
+
+//         if (snapshot.empty) {
+//             checkinListUl.innerHTML = '<li>No check-ins found.</li>';
+//             return;
+//         }
+
+//         snapshot.forEach(doc => {
+//             const checkinData = doc.data();
+//             const listItem = document.createElement('li');
+//             const checkinId = doc.id;
+//             listItem.textContent = `Check-in: ${checkinData.createdAt.toDate().toLocaleString()} - Status: ${checkinData.status}`;
+
+//             const manageCheckinButton = document.createElement('button');
+//             manageCheckinButton.textContent = 'Manage';
+//             manageCheckinButton.addEventListener('click', () => {
+//                 gotoCheckin(classroomId, checkinId);
+//             });
+
+//             listItem.appendChild(manageCheckinButton);
+//             checkinListUl.appendChild(listItem);
+//         });
+//     } catch (error) {
+//         console.error("Error fetching check-ins:", error);
+//         alert("Error fetching check-ins: " + error.message);
+//     }
+// }
+
+// // --- ไปที่หน้าจัดการการเช็คชื่อ ---
+// function gotoCheckin(classroomId, checkinId) {
+//     currentCheckinId = checkinId;
+//     manageClassDiv.style.display = 'none';
+//     checkinDiv.style.display = 'block';
+
+//     const checkinRef = db.collection('classrooms').doc(classroomId).collection('checkins').doc(checkinId);
+//     checkinRef.get().then((doc) => {
+//         if (doc.exists) {
+//             const checkinData = doc.data();
+//             checkinTitleH3.textContent = `Check-in: ${checkinData.createdAt.toDate().toLocaleString()}`;
+
+//             startCheckinButton.disabled = checkinData.status === 'open';
+//             closeCheckinButton.disabled = checkinData.status === 'closed';
+
+//             startCheckinButton.addEventListener('click', () => startCheckin(classroomId, checkinId));
+//             closeCheckinButton.addEventListener('click', () => closeCheckin(classroomId, checkinId));
+//             showStudentsCheckinButton.addEventListener('click', () => showCheckedInStudents(classroomId, checkinId));
+//             qnaButton.addEventListener('click', () => gotoQnA(classroomId, checkinId));
+//             goBackButton2.addEventListener('click', () => {
+//                 checkinDiv.style.display = 'none';
+//                 manageClassDiv.style.display = 'block';
+//             });
+//         } else {
+//             console.log("No such check-in document!");
+//         }
+//     }).catch((error) => {
+//         console.log("Error getting check-in document:", error);
+//     });
+// }
+
+// // --- แสดงรายชื่อผู้เช็กชื่อ ---
+// async function showCheckedInStudents(classroomId, checkinId) {
+//     try {
+//         const checkedInRef = db.collection('classrooms').doc(classroomId).collection('checkins').doc(checkinId).collection('checkedInStudents');
+//         const snapshot = await checkedInRef.get();
+
+//         studentsCheckinListUl.innerHTML = '';
+
+//         if (snapshot.empty) {
+//             studentsCheckinListUl.innerHTML = '<li>No students have checked in yet.</li>';
+//             return;
+//         }
+
+//         snapshot.forEach(doc => {
+//             const studentData = doc.data();
+//             const listItem = document.createElement('li');
+//             listItem.textContent = `${studentData.stid} - ${studentData.name} - คะแนน: ${studentData.grade || 1}`;
+
+//             // เพิ่มปุ่มเพื่อให้ครูสามารถบันทึกคะแนนการเข้าเรียน
+//             const gradeButton = document.createElement('button');
+//             gradeButton.textContent = 'บันทึกคะแนน';
+//             gradeButton.addEventListener('click', () => {
+//                 // ฟังก์ชันบันทึกคะแนนการเข้าเรียน
+//                 recordAttendanceGrade(classroomId, checkinId, studentData.stid);
+//             });
+
+//             listItem.appendChild(gradeButton);
+//             studentsCheckinListUl.appendChild(listItem);
+//         });
+//     } catch (error) {
+//         console.error("Error fetching checked-in students:", error);
+//         alert("Error fetching checked-in students: " + error.message);
+//     }
+// }
+
+// // --- ฟังก์ชันสำหรับบันทึกคะแนนการเข้าเรียน ---
+// async function recordAttendanceGrade(classroomId, checkinId, studentId) {
+//     const currentGrade = prompt("กรุณากรอกคะแนนการเข้าเรียนสำหรับนักเรียนคนนี้:", 1);
+//     if (currentGrade !== null) {
+//         try {
+//             const grade = parseInt(currentGrade, 10);
+//             if (isNaN(grade)) {
+//                 alert("กรุณากรอกคะแนนที่เป็นตัวเลข");
+//                 return;
+//             }
+
+//             const studentRef = db.collection('classrooms').doc(classroomId)
+//                 .collection('checkins').doc(checkinId)
+//                 .collection('checkedInStudents').doc(studentId);
+
+//             await studentRef.update({
+//                 grade: grade  // บันทึกคะแนนเข้าเรียน
+//             });
+
+//             console.log("Attendance grade recorded!");
+//             alert("บันทึกคะแนนการเข้าเรียนสำเร็จ!");
+//         } catch (error) {
+//             console.error("Error recording attendance grade:", error);
+//             alert("Error recording attendance grade: " + error.message);
+//         }
+//     }
+// }
+
+// // --- ฟังก์ชันสำหรับเพิ่มผู้เช็คชื่อและตั้งค่าคะแนนเริ่มต้นเป็น 1 ---
+// async function addStudentToCheckin(classroomId, checkinId, studentId, studentName) {
+//     try {
+//         const studentRef = db.collection('classrooms').doc(classroomId)
+//             .collection('checkins').doc(checkinId)
+//             .collection('checkedInStudents').doc(studentId);
+
+//         // เพิ่มข้อมูลนักเรียนพร้อมคะแนนเริ่มต้น
+//         await studentRef.set({
+//             stid: studentId,
+//             name: studentName,
+//             grade: 1,  // ตั้งค่าคะแนนเริ่มต้นเป็น 1
+//             timestamp: firebase.firestore.FieldValue.serverTimestamp()
+//         });
+
+//         console.log("Student added to check-in with initial grade of 1.");
+//     } catch (error) {
+//         console.error("Error adding student to check-in:", error);
+//         alert("Error adding student: " + error.message);
+//     }
+// }
+// async function closeCheckin(classroomId, checkinId) {
+//         try {
+//             const checkinRef = db.collection('classrooms').doc(classroomId).collection('checkins').doc(checkinId);
+//             await checkinRef.update({
+//                 status: 'closed'
+//             });
+//             startCheckinButton.disabled = false;
+//             closeCheckinButton.disabled = true;
+//             console.log("Check-in closed!");
+//             alert("Check-in closed!");
+//         } catch (error) {
+//             console.error("Error closing check-in:", error);
+//             alert("Error closing check-in: " + error.message);
+//         }
+//     }
+
+
+
+
+
+
+
+
+
 
 // --- Q&A ---
 function gotoQnA(classroomId, checkinId) {
