@@ -102,7 +102,7 @@ const QAPage = () => {
 
       <button
         className="btn mb-3"
-        onClick={() => navigate(`/manage-class/${classId}`)}
+        onClick={() => navigate(`/checkin/${classId}`)}
         style={{
           padding: "12px 30px",
           fontSize: "16px",
@@ -124,7 +124,7 @@ const QAPage = () => {
           e.target.style.color = "#ffffff";
         }}
       >
-        กลับไปจัดการห้องเรียน
+        กลับไปหน้าเช็คชื่อ
       </button>
 
       <h1 className="mb-4">หน้าถาม-ตอบ</h1>

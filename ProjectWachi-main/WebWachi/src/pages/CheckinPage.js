@@ -103,6 +103,37 @@ const CheckinPage = () => {
       alert("❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล!");
     }
   };
+  // Add this to your useEffect for loading student scores
+  useEffect(() => {
+    if (!latestCheckinNo) return;
+
+    const scoresRef = collection(
+      db,
+      `classroom/${classId}/checkin/${latestCheckinNo}/scores`
+    );
+
+    const unsubscribe = onSnapshot(scoresRef, async (querySnapshot) => {
+      const scores = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      // Fetch answers and combine them with the scores
+      const answersData = await fetchAnswers(latestCheckinNo);
+
+      // Merge answers with student scores
+      const scoresWithAnswers = scores.map(student => {
+        return {
+          ...student,
+          answers: answersData[student.id] || {}  // Add answers for each student, or empty object if none
+        };
+      });
+
+      setStudentsScores(scoresWithAnswers);
+    });
+
+    return () => unsubscribe();
+  }, [classId, latestCheckinNo]);
 
   // โหลดข้อมูลเช็คชื่อ
   useEffect(() => {
@@ -194,6 +225,30 @@ const CheckinPage = () => {
       alert("❌ เกิดข้อผิดพลาดในการเริ่มเช็คชื่อ!");
     }
   };
+  const fetchAnswers = async (checkinId) => {
+    const answersCollection = collection(db, `classroom/${classId}/checkin/${checkinId}/answers`);
+    const answersSnapshot = await getDocs(answersCollection);
+
+    const answersData = {};
+    for (const answerDoc of answersSnapshot.docs) {
+      const answerData = answerDoc.data();  // { text: "...", time: "..." }
+      // วนลูปผ่านแต่ละ field ที่เป็น student id
+      if (answerData.students) {
+        for (const studentId in answerData.students) {
+          if (answerData.students.hasOwnProperty(studentId)) {
+            const studentAnswer = answerData.students[studentId];
+
+            // สร้างโครงสร้างข้อมูล answers ให้เหมาะสมกับการใช้งาน
+            if (!answersData[studentId]) {
+              answersData[studentId] = {};
+            }
+            answersData[studentId][answerDoc.id] = studentAnswer; // เก็บคำตอบของนักศึกษาแต่ละคนในแต่ละคำถาม
+          }
+        }
+      }
+    }
+    return answersData;
+  };
 
   // ปิดการเช็คชื่อ
   const handleCloseCheckIn = async () => {
@@ -222,7 +277,21 @@ const CheckinPage = () => {
 
   return (
     <div className="container mt-5">
-      <h1 className="mb-4 text-center">หน้าตรวจเช็คชื่อ</h1>
+      {/* <h1
+        className="mb-4 text-center"
+        style={{
+          fontSize: "3rem", // ขนาดฟอนต์
+          fontWeight: "bold", // หนา
+          color: "#000000", // สีตัวอักษร
+          textTransform: "uppercase", // ทำให้ข้อความตัวพิมพ์ใหญ่ทั้งหมด
+          background: "linear-gradient(90deg, rgba(149, 121, 205, 1) 0%, rgba(0, 0, 0, 1) 100%)", // การไล่สีพื้นหลัง
+          WebkitBackgroundClip: "text", // ใช้การไล่สีพื้นหลัง
+          color: "transparent", // ตัวอักษรโปร่งแสงเพื่อให้เห็นพื้นหลัง
+          marginBottom: "30px", // เพิ่มช่องว่างด้านล่าง
+        }}
+      >
+        หน้าตรวจเช็คชื่อ
+      </h1> */}
 
       <div className="d-flex justify-content-center gap-3 mb-4">
         <button
@@ -464,7 +533,7 @@ const CheckinPage = () => {
         {showScores ? "ซ่อนคะแนน" : "แสดงคะแนน"}
       </button>
 
-      {/* ✅ ตารางคะแนน */}
+     
       {showScores && (
         <div className="card mt-3">
           <div className="card-body">
@@ -480,16 +549,16 @@ const CheckinPage = () => {
                     <th>วันเวลา</th>
                     <th>คะแนน</th>
                     <th>สถานะ</th>
+                    <th>คำตอบ</th> {/* เพิ่มคอลัมน์สำหรับคำตอบ */}
                   </tr>
                 </thead>
                 <tbody>
                   {studentsScores.map((student, index) => {
-                    // ใช้ studentsMap ที่นี่ด้วย **************************
                     const studentInfo = studentsMap[student.id];
+
                     return (
                       <tr key={student.id}>
                         <td>{index + 1}</td>
-                        {/* แสดง stdid และ name จาก studentsMap */}
                         <td>{studentInfo?.stdid}</td>
                         <td>{studentInfo?.name}</td>
                         <td>
@@ -524,8 +593,21 @@ const CheckinPage = () => {
                           />
                         </td>
                         <td>{student.status === 1 ? "เข้าเรียน" : "ไม่เข้าเรียน"}</td>
+                          {/* แสดงคำตอบจาก answers */}
+                          
+                          <td>
+                            {student.answers && Object.keys(student.answers).length > 0 ? (
+                              Object.keys(student.answers).map((answerId) => (
+                                <div key={answerId}>
+                                  {student.answers[answerId]?.text || "ไม่มีคำตอบ"}
+                                </div>
+                              ))
+                            ) : (
+                              <span>ไม่มีคำตอบ</span>
+                            )}
+                          </td>
                       </tr>
-                    )
+                    );
                   })}
                 </tbody>
               </table>
@@ -573,7 +655,9 @@ const CheckinPage = () => {
             padding: "12px 30px",  // ตั้งค่า padding ให้เท่ากัน
             fontSize: "16px", // ขนาดตัวอักษร
             fontWeight: "bold", // ตัวอักษรหนา
-            borderRadius: "8px", // มุมโค้งมน
+            borderRadius: "8px",
+            backgroundColor: "#000000", // มุมโค้งมน
+            color: "#ffffff", 
             boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)", // เพิ่มเงา
             transition: "background-color 0.3s ease-in-out, transform 0.2s ease", // การเปลี่ยนแปลง
           }}
@@ -598,6 +682,8 @@ const CheckinPage = () => {
             padding: "12px 30px",  // ตั้งค่า padding ให้เท่ากัน
             fontSize: "16px", // ขนาดตัวอักษร
             fontWeight: "bold", // ตัวอักษรหนา
+            backgroundColor: "#000000",
+            color: "#ffffff",
             borderRadius: "8px", // มุมโค้งมน
             boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)", // เพิ่มเงา
             transition: "background-color 0.3s ease-in-out, transform 0.2s ease", // การเปลี่ยนแปลง

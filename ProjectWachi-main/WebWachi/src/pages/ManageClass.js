@@ -137,20 +137,20 @@ const ManageClass = () => {
             studentScore = scoreSnap.data().score || 0;
             studentRemark = scoreSnap.data().remark || ""; // เพิ่มการดึง remark
           }
-           return {
-              ...student,
-              answers: studentAnswers,
-              score: studentScore,
-              remark: studentRemark, // เพิ่ม remark เข้าไปในข้อมูล
-            };
+          return {
+            ...student,
+            answers: studentAnswers,
+            score: studentScore,
+            remark: studentRemark, // เพิ่ม remark เข้าไปในข้อมูล
+          };
         }
-       
+
         return getStudentData();
       });
 
       // ใช้ Promise.all รอให้ดึงข้อมูลของทุกคนเสร็จ
       Promise.all(studentsWithData).then(completedStudents => {
-          setCheckinStudents(completedStudents);
+        setCheckinStudents(completedStudents);
       });
 
     } else {
@@ -240,99 +240,99 @@ const ManageClass = () => {
           เริ่มเช็คชื่อ
         </button>
 
-      <h5>ประวัติการเช็คชื่อ</h5>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>วัน-เวลา</th>
-            <th>คำถาม</th>
-            <th>จำนวนคนเข้าเรียน</th>
-            <th>สถานะ</th>
-            <th>ดูรายชื่อนักศึกษา</th>
-          </tr>
-        </thead>
-        <tbody>
-          {checkins.map((record, index) => (
-            <tr key={index}>
-              <td>{index + 1}</td>
-              <td>{record.date}</td>
-              <td>{record.question}</td>
-              <td>{record.studentCount}</td>
-              <td>{record.status === 1 ? "กำลังเรียน" : "เสร็จสิ้น"}</td>
-              <td>
-                <button
-                  onClick={() => handleViewCheckinStudents(record.id)}
-                  style={{
-                    backgroundColor: "#000000",
-                    color: "#ffffff",
-                    padding: "12px 16px",
-                    border: "none",
-                    borderRadius: "10px",
-                    cursor: "pointer",
-                    fontSize: "13px",
-                    fontWeight: "bold",
-                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
-                    transition: "background-color 0.2s ease-in-out, color 0.2s ease-in-out",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = "#6d686f";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = "#000000";
-                    e.target.style.color = "#ffffff";
-                  }}
-                >
-                  ดูรายชื่อนักศึกษา
-                </button>
-              </td>
+        <h5>ประวัติการเช็คชื่อ</h5>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>วัน-เวลา</th>
+              <th>คำถาม</th>
+              <th>จำนวนคนเข้าเรียน</th>
+              <th>สถานะ</th>
+              <th>ดูรายชื่อนักศึกษา</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {checkinStudents && (
-        <div className="mt-4">
-          <h5>รายชื่อนักศึกษาที่เช็คชื่อในรอบนี้</h5>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>รหัส</th>
-                <th>ชื่อ</th>
-                <th>คำตอบ</th>
-                <th>คะแนน</th>
-                <th>หมายเหตุ</th> {/* เพิ่ม column หมายเหตุ */}
+          </thead>
+          <tbody>
+            {checkins.map((record, index) => (
+              <tr key={index}>
+                <td>{index + 1}</td>
+                <td>{record.date}</td>
+                <td>{record.question}</td>
+                <td>{record.studentCount}</td>
+                <td>{record.status === 1 ? "กำลังเรียน" : "เสร็จสิ้น"}</td>
+                <td>
+                  <button
+                    onClick={() => handleViewCheckinStudents(record.id)}
+                    style={{
+                      backgroundColor: "#000000",
+                      color: "#ffffff",
+                      padding: "12px 16px",
+                      border: "none",
+                      borderRadius: "10px",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: "bold",
+                      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+                      transition: "background-color 0.2s ease-in-out, color 0.2s ease-in-out",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#6d686f";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "#000000";
+                      e.target.style.color = "#ffffff";
+                    }}
+                  >
+                    ดูรายชื่อนักศึกษา
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {/* ใช้ studentsMap โดยตรง */}
-              {checkinStudents.map((student, index) => {
-                const studentInfo = studentsMap[student.stdid];
+            ))}
+          </tbody>
+        </table>
 
-                return studentInfo ? (
-                  <tr key={index}>
-                    <td>{index + 1}</td>
-                    <td>{studentInfo.stdid}</td>
-                    <td>{studentInfo.name}</td>
-                    <td>
-                      {Object.keys(student.answers).map((questionId) => (
-                        <div key={questionId}>
-                          {student.answers[questionId].text || "ไม่มีคำตอบ"}
-                        </div>
-                      ))}
-                    </td>
-                    <td>{student.score}</td>
-                    <td>{student.remark}</td> {/* แสดงหมายเหตุ */}
-                  </tr>
-                ) : null;
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+        {checkinStudents && (
+          <div className="mt-4">
+            <h5>รายชื่อนักศึกษาที่เช็คชื่อในรอบนี้</h5>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>รหัส</th>
+                  <th>ชื่อ</th>
+                  <th>คำตอบ</th>
+                  <th>คะแนน</th>
+                  <th>หมายเหตุ</th> {/* เพิ่ม column หมายเหตุ */}
+                </tr>
+              </thead>
+              <tbody>
+                {/* ใช้ studentsMap โดยตรง */}
+                {checkinStudents.map((student, index) => {
+                  const studentInfo = studentsMap[student.stdid];
 
-        
+                  return studentInfo ? (
+                    <tr key={index}>
+                      <td>{index + 1}</td>
+                      <td>{studentInfo.stdid}</td>
+                      <td>{studentInfo.name}</td>
+                      <td>
+                        {Object.keys(student.answers).map((questionId) => (
+                          <div key={questionId}>
+                            {student.answers[questionId].text || "ไม่มีคำตอบ"}
+                          </div>
+                        ))}
+                      </td>
+                      <td>{student.score}</td>
+                      <td>{student.remark}</td> {/* แสดงหมายเหตุ */}
+                    </tr>
+                  ) : null;
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button
             onClick={() => setShowStudents(!showStudents)}
@@ -360,17 +360,16 @@ const ManageClass = () => {
             {showStudents ? "ซ่อนรายชื่อนักศึกษา" : "แสดงรายชื่อนักศึกษา"}
           </button>
         </div>
-        
+
         {showStudents && (
           <div className="mt-4">
             <h5>รายชื่อนักศึกษา</h5>
-            <table className="table">
+            <table className="table" >
               <thead>
                 <tr>
                   <th>#</th>
                   <th>รหัส</th>
                   <th>ชื่อ</th>
-                  <th>รูปภาพ</th>
                 </tr>
               </thead>
               <tbody>
@@ -380,9 +379,7 @@ const ManageClass = () => {
                     <td>{index + 1}</td>
                     <td>{student.stdid}</td>
                     <td>{student.name}</td>
-                    <td>
-                      <img src={student.photo} alt="Student" width="50" height="50" />
-                    </td>
+
                   </tr>
                 ))}
               </tbody>
@@ -418,8 +415,8 @@ const ManageClass = () => {
           กลับไป Dashboard
         </button>
 
-      
-    </div>
+
+      </div>
     </div>
   );
 };
